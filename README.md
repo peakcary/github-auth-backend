@@ -18,3 +18,7 @@ src/
 └── main.ts
 
 ```
+
+
+### 20241028_1
+- npm install @nestjs/jwt @nestjs/passport passport passport-jwt bcryptjs
