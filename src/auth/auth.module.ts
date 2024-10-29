@@ -1,23 +1,12 @@
-// import { Module } from '@nestjs/common';
-// import { AuthService } from './auth.service';
-// import { AuthController } from './auth.controller';
-// import { PrismaModule } from '../prisma/prisma.module'; // 导入 Prisma 模块
-
-// @Module({
-//   imports: [PrismaModule], // 导入其他模块
-//   providers: [AuthService], // 注入服务
-//   controllers: [AuthController], // 注册控制器
-// })
-// export class AuthModule {}
-
-
 import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
-import { PrismaService } from '../prisma/prisma.service'; // 确保路径正确
+import { UserService } from '../user/user.service'; // 导入 UserService
+import { UserModule } from '../user/user.module'; // 导入 UserModule
+import { PrismaModule } from '../prisma/prisma.module'; // 导入 PrismaModule
 
 @Module({
   imports: [
@@ -26,9 +15,11 @@ import { PrismaService } from '../prisma/prisma.service'; // 确保路径正确
       secret: process.env.JWT_SECRET || 'defaultSecret',
       signOptions: { expiresIn: '1h' },
     }),
+    UserModule, // 确保导入 UserModule
+    PrismaModule, // 确保导入 PrismaModule
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PrismaService], // 注册 PrismaService
+  providers: [AuthService, JwtStrategy, UserService], // 在 providers 中添加 UserService
   exports: [AuthService],
 })
 export class AuthModule {}

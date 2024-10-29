@@ -1,73 +1,101 @@
-import { Injectable } from '@nestjs/common';
-import axios from 'axios';
-import { PrismaService } from '../prisma/prisma.service';
- 
+import {
+  Injectable,
+  HttpException,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { UserService } from '../user/user.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { User } from '@prisma/client';
+import axios from 'axios';
 
 @Injectable()
 export class AuthService {
-  // constructor(private prisma: PrismaService,private readonly jwtService: JwtService) {}
-
   constructor(
     private readonly jwtService: JwtService,
-    private readonly prismaService: PrismaService, // 注入 PrismaService
+    private readonly userService: UserService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  async findOrCreateUser(githubId: string, username: string, accessToken: string) {
-    // 使用 PrismaService 查询或创建用户
-    let user = await this.prismaService.user.findUnique({ where: { githubId } });
-    if (!user) {
-      user = await this.prismaService.user.create({
-        data: { githubId, username, accessToken },
+  // GitHub 登录逻辑
+  async githubLogin(code: string) {
+    try {
+      const tokenResponse = await axios.post(
+        'https://github.com/login/oauth/access_token',
+        {
+          client_id: process.env.GITHUB_CLIENT_ID,
+          client_secret: process.env.GITHUB_CLIENT_SECRET,
+          code,
+        },
+        { headers: { Accept: 'application/json' } },
+      );
+
+      const { access_token } = tokenResponse.data;
+      if (!access_token) {
+        throw new HttpException(
+          'Failed to retrieve access token',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const userResponse = await axios.get('https://api.github.com/user', {
+        headers: { Authorization: `Bearer ${access_token}` },
       });
+
+      const { id, login: username, email } = userResponse.data;
+      const githubId = id.toString();
+
+      // 使用 UserService 查找或创建用户
+      const user = await this.userService.findOrCreateUser(
+        githubId,
+        username,
+        email,
+        access_token,
+      );
+
+      return user;
+    } catch (error) {
+      console.error('GitHub login error:', error);
+      throw new HttpException(
+        'GitHub login failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
-    return user;
   }
 
-  async login(user: any) {
-    const payload = { username: user.username, sub: user.id };
-    return {
-      access_token: this.jwtService.sign(payload),
+  // 登录时生成 JWT
+  async login(user: User) {
+    const payload = {
+      githubId: user.githubId,
+      username: user.username,
+      sub: user.id,
     };
+    return { access_token: this.jwtService.sign(payload) };
   }
-
-  async getAccessToken(code: string): Promise<string> {
-    const response = await axios.post(
-      'https://github.com/login/oauth/access_token',
-      {
-        client_id: process.env.GITHUB_CLIENT_ID,
-        client_secret: process.env.GITHUB_CLIENT_SECRET,
-        code,
-      },
-      { headers: { Accept: 'application/json' } },
-    );
-    return response.data.access_token;
-  } 
-
- 
-  // async login(user: any) {
-  //   const payload = { username: user.username, sub: user.id };
-  //   return {
-  //     access_token: this.jwtService.sign(payload),
-  //   };
+  // async validateUser(githubId: string): Promise<User | null> {
+  //   return this.userService.findOneByGithubId(githubId);
   // }
 
-  async getUserInfo(accessToken: string) {
-    const { data } = await axios.get('https://api.github.com/user', {
-      headers: { Authorization: `token ${accessToken}` },
-    });
-    return data;
-  }
-
-  // async findOrCreateUser(githubId: string, username: string, accessToken: string) {
-  //   let user = await this.prisma.user.findUnique({ where: { githubId } });
-
+  // async validateUser(githubId: string): Promise<User | null> {
+  //   const user = await this.userService.findOneByGithubId(githubId);
   //   if (!user) {
-  //     user = await this.prisma.user.create({
-  //       data: { githubId, username, accessToken },
-  //     });
+  //     console.log(`User not found for GitHub ID: ${githubId}`);
+  //     throw new UnauthorizedException();
   //   }
-
   //   return user;
   // }
+
+  // auth.service.ts
+  async validateUser(payload: any): Promise<User | null> {
+    // 假设 payload 中有 githubId
+    const { githubId } = payload; // 获取 githubId
+    const user = await this.userService.findOneByGithubId(githubId); // 使用 githubId 查找用户
+
+    if (!user) {
+      console.log(`User not found for GitHub ID: ${githubId}`);
+      throw new UnauthorizedException(); // 如果找不到用户，抛出未授权异常
+    }
+    return user; // 返回找到的用户
+  }
 }

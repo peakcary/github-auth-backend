@@ -1,55 +1,37 @@
-import { Controller, Get, Query, Redirect, Res,UseGuards } from '@nestjs/common'; 
-import { AuthService } from './auth.service'; 
-import { JwtAuthGuard } from './jwt-auth.guard'; // JWT 守卫
+import { Controller, Get, Req, Res, HttpException, HttpStatus } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { Request, Response } from 'express';
 
-@Controller('auth')
+@Controller('auth/github')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
-  @Get('github/login')
-  @Redirect('https://github.com/login/oauth/authorize', 302)
-  githubLogin() {
-    return {
-      url: `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}`,
-    };
+  @Get('login')
+  async githubLogin(@Res() res: Response) {
+    const githubAuthUrl = 'https://github.com/login/oauth/authorize';
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    const redirectUri = process.env.GITHUB_REDIRECT_URI;
+    const url = `${githubAuthUrl}?client_id=${clientId}&redirect_uri=${redirectUri}`;
+    res.redirect(url);
   }
 
-  // @Get('github/callback')
-  // async githubCallback(@Query('code') code: string, @Res() res) {
-  //   const accessToken = await this.authService.getAccessToken(code);
-  //   const userInfo = await this.authService.getUserInfo(accessToken);
-
-  //   const user = await this.authService.findOrCreateUser(
-  //     userInfo.id.toString(),
-  //     userInfo.login,
-  //     accessToken,
-  //   );
-
-  //   res.json(user);
-  // }
-
-  @Get('github/callback')
-  async githubCallback(@Query('code') code: string, @Res() res) {
+  @Get('callback')
+  async githubCallback(@Req() req: Request, @Res() res: Response) {
     try {
-      const accessToken = await this.authService.getAccessToken(code);
-      const userInfo = await this.authService.getUserInfo(accessToken);
-      const user = await this.authService.findOrCreateUser(
-        userInfo.id.toString(),
-        userInfo.login,
-        accessToken,
-      );
+      const code = req.query.code as string;
+      if (!code) {
+        throw new HttpException('Missing code from GitHub', HttpStatus.BAD_REQUEST);
+      }
 
+      const user = await this.authService.githubLogin(code);
       const jwt = await this.authService.login(user);
-      res.json(jwt); // 返回 JWT 令牌
+      res.json(jwt);
     } catch (error) {
-      res.status(500).json({ message: 'Authentication failed', error: error.message });
+      console.error('Callback error:', error);
+      res.status(error.status || 500).json({
+        message: error.message || 'Internal server error',
+        statusCode: error.status || 500,
+      });
     }
-  }
-
-  // 受 JWT 保护的示例路由
-  @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  getProfile(@Res() res) {
-    res.json({ message: 'This is a protected route' });
   }
 }
