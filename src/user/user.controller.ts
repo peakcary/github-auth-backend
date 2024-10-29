@@ -24,6 +24,8 @@ export class UserController {
     return this.userService.findAll();
   }
 
+   // 获取所有用户，使用 JWT 验证
+   @UseGuards(JwtAuthGuard)
   // 根据 ID 获取用户
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<User> {

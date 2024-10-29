@@ -72,19 +72,7 @@ export class AuthService {
       sub: user.id,
     };
     return { access_token: this.jwtService.sign(payload) };
-  }
-  // async validateUser(githubId: string): Promise<User | null> {
-  //   return this.userService.findOneByGithubId(githubId);
-  // }
-
-  // async validateUser(githubId: string): Promise<User | null> {
-  //   const user = await this.userService.findOneByGithubId(githubId);
-  //   if (!user) {
-  //     console.log(`User not found for GitHub ID: ${githubId}`);
-  //     throw new UnauthorizedException();
-  //   }
-  //   return user;
-  // }
+  } 
 
   // auth.service.ts
   async validateUser(payload: any): Promise<User | null> {

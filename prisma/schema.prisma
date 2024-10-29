@@ -14,10 +14,59 @@ datasource db {
 }
 
 model User {
-  id        Int     @id @default(autoincrement())
-  githubId  String  @unique
-  username  String
-  email     String?
+  id          Int          @id @default(autoincrement())
+  githubId    String       @unique
+  username    String
+  email       String?
   accessToken String
-  createdAt DateTime @default(now())
+  createdAt   DateTime     @default(now())
+  enrollments Enrollment[]
+}
+
+model Program {
+  program_id              Int      @id @default(autoincrement())
+  program_name            String
+  github_repo_id          String
+  description             String?
+  start_date              DateTime
+  end_date                DateTime
+  registration_start_date DateTime
+  registration_end_date   DateTime
+  status                  String
+  tags                    String?
+  logo                    String?
+  weekly_leave_rule       Int      @default(2)
+  target_group            String?
+  study_materials         String
+  reward_info             String?
+  other_info              String?
+  feedback_url            String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @default(now())
+
+  enrollments Enrollment[]
+}
+
+model Enrollment {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  programId      Int
+  role           String
+  status         String   @default("active")
+  enrollmentDate DateTime @default(now())
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program        Program         @relation(fields: [programId], references: [program_id], onDelete: Cascade)
+  userOnPrograms UserOnProgram[] // Added relation to UserOnProgram
+
+  @@unique([userId, programId])
+}
+
+model UserOnProgram {
+  id           Int     @id @default(autoincrement())
+  enrollmentId Int     @unique
+  notes        String?
+  result       String
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 }

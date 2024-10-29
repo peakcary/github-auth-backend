@@ -2,6 +2,12 @@
 - http://localhost:3000/api/auth/github/login
 - npm run start:dev
 - npx prisma migrate dev
+- npx prisma generate
+
+
+- npx prisma init
+- npx prisma migrate dev --name init
+
 
 ```
 src/
